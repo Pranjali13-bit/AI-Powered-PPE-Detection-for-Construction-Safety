@@ -75,29 +75,12 @@ ROBOFLOW_CLASSES = {
 }
 
 # ── Model Loading ──────────────────────────────────────────────────────────────
+from ultralytics import YOLO
+
 def load_model():
-    global model, USE_MOCK
-    paths = [
-        "models/construction_ppe_best.pt",   # trained model (preferred)
-        "models/best.pt",                    # generic trained model
-        "models/yolov8n.pt",                 # fallback base model
-        "yolov8n.pt",
-    ]
-    try:
-        from ultralytics import YOLO
-        for p in paths:
-            if os.path.exists(p):
-                model = YOLO(p)
-                print(f"[MODEL] Loaded: {p}")
-                return
-        # Download yolov8n as last resort
-        model = YOLO("yolov8n.pt")
-        os.makedirs("models", exist_ok=True)
-        model.save("models/yolov8n.pt")
-        print("[MODEL] Using base yolov8n.pt — run train_ppe.py to train on Construction-PPE dataset")
-    except Exception as e:
-        print(f"[MODEL] Failed: {e}")
-        USE_MOCK = True
+    global model
+    model = YOLO("yolov8n.pt")
+    print("[MODEL] Loaded yolov8n.pt successfully")
 
 # ── Class Name Mapper ──────────────────────────────────────────────────────────
 def map_class(name, cid):
