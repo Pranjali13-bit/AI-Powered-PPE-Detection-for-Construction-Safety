@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PPE Guard — Construction Safety AI</title>
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161b22; --surface2:#1c2333; --border:#30363d;
+    --green:#00e676; --red:#f44336; --yellow:#ffca28; --blue:#29b6f6;
+    --text:#e6edf3; --muted:#8b949e; --accent:#00e676;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+
+  /* ── Header ── */
+  header{
+    background:linear-gradient(135deg,#0d1f0d 0%,#0d1117 60%);
+    border-bottom:1px solid #1a4a1a;
+    padding:18px 32px;display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{display:flex;align-items:center;gap:12px;}
+  .logo-icon{font-size:32px;}
+  .logo h1{font-size:22px;font-weight:700;color:var(--green);letter-spacing:1px;}
+  .logo p{font-size:12px;color:var(--muted);}
+  .model-badge{
+    background:#1a4a1a;border:1px solid #2a6a2a;
+    border-radius:20px;padding:6px 16px;font-size:12px;color:var(--green);
+  }
+  #demo-badge{
+    background:#3a2000;border:1px solid #ff9500;
+    border-radius:20px;padding:6px 14px;font-size:12px;color:#ff9500;
+    display:{% if demo_mode %}flex{% else %}none{% endif %};align-items:center;gap:6px;
+  }
+
+  /* ── Layout ── */
+  .main{padding:24px 32px;max-width:1500px;margin:0 auto;}
+  .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;}
+  .tab{
+    padding:10px 24px;cursor:pointer;font-size:14px;font-weight:600;
+    border:none;background:none;color:var(--muted);border-bottom:3px solid transparent;
+    transition:.2s;
+  }
+  .tab.active{color:var(--green);border-bottom-color:var(--green);}
+
+  /* ── Live Camera Panel ── */
+  .live-grid{display:grid;grid-template-columns:1fr 340px;gap:20px;}
+  .cam-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .cam-header{
+    padding:14px 18px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .cam-title{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .live-dot{
+    display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--border);}
+  .dot.live{background:var(--red);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .stream-wrap{
+    position:relative;background:#000;min-height:400px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #stream-img{width:100%;display:none;object-fit:contain;}
+  #cam-placeholder{
+    text-align:center;padding:60px 20px;
+  }
+  #cam-placeholder .ph-icon{font-size:56px;margin-bottom:16px;}
+  #cam-placeholder p{color:var(--muted);font-size:14px;}
+
+  .cam-footer{
+    padding:12px 18px;background:var(--surface2);
+    display:flex;align-items:center;gap:12px;
+  }
+  .fps-badge{
+    background:#0d1f0d;border:1px solid #2a5a2a;
+    border-radius:8px;padding:4px 12px;font-size:12px;color:var(--green);
+  }
+  .det-count{font-size:12px;color:var(--muted);}
+
+  /* ── Buttons ── */
+  .btn{
+    padding:10px 22px;border:none;border-radius:8px;
+    font-size:13px;font-weight:600;cursor:pointer;transition:.2s;
+  }
+  .btn-green{background:#1a4a1a;color:var(--green);border:1px solid #2a7a2a;}
+  .btn-green:hover{background:#1f5a1f;}
+  .btn-red{background:#3a1010;color:#f44336;border:1px solid #6a1515;}
+  .btn-red:hover{background:#4a1515;}
+  .btn-gold{background:#3a2800;color:var(--yellow);border:1px solid #7a5500;}
+  .btn-gold:hover{background:#4a3400;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--border);}
+
+  /* ── Compliance Panel ── */
+  .compliance-panel{display:flex;flex-direction:column;gap:16px;}
+
+  /* Compliance Rate Ring */
+  .rate-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:20px;text-align:center;
+  }
+  .rate-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;}
+  .rate-ring{position:relative;width:120px;height:120px;margin:0 auto 14px;}
+  .rate-ring svg{transform:rotate(-90deg);}
+  .rate-ring .track{fill:none;stroke:var(--surface2);stroke-width:12;}
+  .rate-ring .fill{fill:none;stroke-width:12;stroke-linecap:round;
+    stroke-dasharray:339;stroke-dashoffset:339;transition:stroke-dashoffset .6s ease,stroke .4s;}
+  .rate-number{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    font-size:28px;font-weight:800;
+  }
+  .rate-sub{font-size:12px;color:var(--muted);}
+
+  /* Stat Rows */
+  .stat-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;
+  }
+  .stat-card-title{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;}
+  .stat-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:9px 0;border-bottom:1px solid var(--border);
+  }
+  .stat-row:last-child{border-bottom:none;}
+  .stat-label{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .stat-icon{font-size:18px;}
+  .stat-fraction{font-size:16px;font-weight:700;}
+  .stat-bar-wrap{width:80px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+  .stat-bar{height:100%;border-radius:3px;transition:width .5s ease,background .4s;}
+
+  /* Worker Cards */
+  .worker-grid{display:flex;flex-direction:column;gap:10px;}
+  .worker-card{
+    background:var(--surface2);border-radius:10px;padding:12px 14px;
+    border-left:4px solid var(--border);transition:.3s;
+  }
+  .worker-card.compliant{border-left-color:var(--green);}
+  .worker-card.violation{border-left-color:var(--red);}
+  .worker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .worker-name{font-size:13px;font-weight:700;}
+  .worker-badge{
+    font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;
+  }
+  .badge-safe{background:#0d2d0d;color:var(--green);}
+  .badge-viol{background:#2d0d0d;color:var(--red);}
+  .worker-ppe{display:flex;gap:8px;}
+  .ppe-chip{
+    display:flex;align-items:center;gap:5px;
+    padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600;
+  }
+  .ppe-chip.ok{background:#0d2a0d;color:var(--green);}
+  .ppe-chip.miss{background:#2a0d0d;color:var(--red);}
+
+  /* Alert Banner */
+  #alert-banner{
+    background:#2d0d0d;border:1px solid #6a1515;border-radius:10px;
+    padding:12px 18px;display:none;align-items:center;gap:10px;
+    animation:flash .8s infinite;
+  }
+  @keyframes flash{0%,100%{border-color:#6a1515;}50%{border-color:#f44336;}}
+  #alert-banner .alert-icon{font-size:22px;}
+  #alert-banner .alert-text{font-size:13px;font-weight:700;color:#f44336;}
+
+  /* ── Image Upload Panel ── */
+  .upload-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;}
+  .upload-zone{
+    border:2px dashed var(--border);border-radius:12px;
+    padding:60px 20px;text-align:center;cursor:pointer;transition:.2s;
+    background:var(--surface);
+  }
+  .upload-zone:hover,.upload-zone.drag{border-color:var(--green);background:#0d1f0d;}
+  .upload-zone .uz-icon{font-size:48px;margin-bottom:12px;}
+  .upload-zone p{color:var(--muted);font-size:14px;}
+  .upload-zone strong{color:var(--text);}
+  #file-input{display:none;}
+
+  .result-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .result-header{padding:14px 18px;border-bottom:1px solid var(--border);}
+  .result-header h3{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  #result-img-wrap{display:none;padding:12px;}
+  #result-img-wrap img{width:100%;border-radius:8px;}
+  #detect-btn{width:100%;margin-top:12px;}
+
+  .summary-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:14px;}
+  .summ-box{
+    background:var(--surface2);border-radius:10px;padding:14px;text-align:center;
+    border:1px solid var(--border);
+  }
+  .summ-val{font-size:28px;font-weight:800;color:var(--green);}
+  .summ-lbl{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  /* Detection list */
+  .det-list{max-height:340px;overflow-y:auto;padding:10px 14px;}
+  .det-item{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 10px;border-radius:8px;margin-bottom:6px;
+    background:var(--surface2);
+  }
+  .det-item .di-icon{font-size:20px;}
+  .det-item .di-name{flex:1;font-size:13px;font-weight:600;}
+  .det-item .di-conf{font-size:12px;color:var(--muted);}
+  .conf-bar-wrap{width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .conf-bar{height:100%;border-radius:3px;background:var(--green);}
+
+  /* ── Footer ── */
+  footer{
+    margin-top:40px;padding:24px 32px;border-top:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+    background:var(--surface);
+  }
+  .dev-info h3{font-size:16px;font-weight:700;color:var(--green);}
+  .dev-info p{font-size:12px;color:var(--muted);}
+  .dev-links{display:flex;gap:10px;margin-top:8px;}
+  .dev-link{
+    padding:5px 14px;border:1px solid var(--border);border-radius:8px;
+    font-size:12px;color:var(--muted);text-decoration:none;transition:.2s;
+  }
+  .dev-link:hover{border-color:var(--green);color:var(--green);}
+
+  /* Tabs panels */
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  /* Loader */
+  .spinner{
+    width:36px;height:36px;border:3px solid var(--border);
+    border-top-color:var(--green);border-radius:50%;
+    animation:spin .7s linear infinite;margin:30px auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #upload-spinner{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">🦺</span>
+    <div>
+      <h1>PPE GUARD</h1>
+      <p>Construction Safety AI · YOLOv8</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <div id="demo-badge">⚠ DEMO MODE — No trained model loaded</div>
+    <div class="model-badge" id="model-badge">● Model Ready</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('live',this)">📷 Live Camera</button>
+    <button class="tab" onclick="switchTab('upload',this)">🖼 Image Upload</button>
+  </div>
+
+  <!-- ══════════════ LIVE CAMERA PANEL ══════════════ -->
+  <div id="panel-live" class="panel active">
+    <div style="margin-bottom:14px;">
+      <div id="alert-banner">
+        <span class="alert-icon">🚨</span>
+        <span class="alert-text" id="alert-text">PPE VIOLATION DETECTED</span>
+      </div>
+    </div>
+
+    <div class="live-grid">
+      <!-- Left: Camera Feed -->
+      <div>
+        <div class="cam-card">
+          <div class="cam-header">
+            <span class="cam-title">Live · Camera Stream</span>
+            <div class="live-dot">
+              <div class="dot" id="live-dot"></div>
+              <span id="live-status">Stopped</span>
+            </div>
+          </div>
+          <div class="stream-wrap">
+            <div id="cam-placeholder">
+              <div class="ph-icon">📷</div>
+              <p>Click <strong>Start Camera</strong> to begin real-time PPE detection</p>
+              <p style="margin-top:8px;font-size:12px;">Bounding boxes · Per-worker compliance · Live counts</p>
+            </div>
+            <img id="stream-img" alt="Live PPE Detection"/>
+          </div>
+          <div class="cam-footer">
+            <div class="fps-badge">⚡ <span id="fps-val">0</span> FPS</div>
+            <div class="det-count" id="det-count-live">0 workers detected</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-green" id="btn-start" onclick="startCamera()">▶ Start Camera</button>
+            <button class="btn btn-red"   id="btn-stop"  onclick="stopCamera()" disabled>■ Stop</button>
+            <input id="cam-source" placeholder="Source (0=webcam, or RTSP URL)"
+              style="flex:1;background:var(--surface2);border:1px solid var(--border);
+                     color:var(--text);padding:8px 12px;border-radius:8px;font-size:13px;" value="0"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Compliance Panel -->
+      <div class="compliance-panel">
+
+        <!-- Compliance Rate Ring -->
+        <div class="rate-card">
+          <div class="rate-label">Compliance Rate</div>
+          <div class="rate-ring">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle class="track" cx="60" cy="60" r="54"/>
+              <circle class="fill" id="rate-fill" cx="60" cy="60" r="54" stroke="#00e676"/>
+            </svg>
+            <div class="rate-number" id="rate-number" style="color:var(--green)">–</div>
+          </div>
+          <div class="rate-sub" id="rate-sub">Start camera to monitor</div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="stat-card">
+          <div class="stat-card-title">PPE Coverage</div>
+
+          <div class="stat-row">
+            <div class="stat-label"><span class="stat-icon">🧍</span>Workers</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="stat-fraction" id="stat-workers">–</div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label"><span class="stat-icon">🪖</span>Helmets</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="stat-fraction" id="stat-helmets">–</div>
+              <div class="stat-bar-wrap"><div class="stat-bar" id="bar-helmets" style="width:0%;background:var(--green)"></div></div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label"><span class="stat-icon">🦺</span>Safety Vests</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="stat-fraction" id="stat-vests">–</div>
+              <div class="stat-bar-wrap"><div class="stat-bar" id="bar-vests" style="width:0%;background:var(--green)"></div></div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label"><span class="stat-icon">🥽</span>Goggles</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="stat-fraction" id="stat-goggles">–</div>
+              <div class="stat-bar-wrap"><div class="stat-bar" id="bar-goggles" style="width:0%;background:var(--green)"></div></div>
+            </div>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-label"><span class="stat-icon">✅</span>Compliant</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="stat-fraction" id="stat-compliant">–</div>
+              <div class="stat-bar-wrap"><div class="stat-bar" id="bar-compliant" style="width:0%;background:var(--green)"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-Worker Cards -->
+        <div class="stat-card">
+          <div class="stat-card-title">Per-Worker Status</div>
+          <div class="worker-grid" id="worker-grid">
+            <p style="color:var(--muted);font-size:13px;padding:8px 0;">No workers detected yet.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ IMAGE UPLOAD PANEL ══════════════ -->
+  <div id="panel-upload" class="panel">
+    <div class="upload-grid">
+      <div>
+        <!-- Drop Zone -->
+        <div class="upload-zone" id="drop-zone"
+          onclick="document.getElementById('file-input').click()"
+          ondragover="ev(event,'drag')" ondragleave="ev(event,'leave')" ondrop="handleDrop(event)">
+          <div class="uz-icon">📂</div>
+          <p><strong>Click to upload</strong> or drag & drop</p>
+          <p style="margin-top:8px;font-size:12px;">JPG, PNG, MP4, WebP supported</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*,video/*" onchange="handleFile(event)"/>
+
+        <!-- Preview -->
+        <div id="preview-wrap" style="display:none;margin-top:14px;">
+          <img id="preview-img" style="width:100%;border-radius:10px;border:1px solid var(--border);" alt="Preview"/>
+        </div>
+        <div id="upload-spinner"><div class="spinner"></div></div>
+        <button class="btn btn-gold" id="detect-btn" onclick="detectImage()" disabled style="margin-top:12px;width:100%;">
+          🔍 Detect PPE
+        </button>
+      </div>
+
+      <div>
+        <!-- Summary boxes -->
+        <div class="result-card" style="margin-bottom:14px;">
+          <div class="result-header"><h3>Detection Summary</h3></div>
+          <div class="summary-grid">
+            <div class="summ-box">
+              <div class="summ-val" id="s-workers">–</div>
+              <div class="summ-lbl">Workers</div>
+            </div>
+            <div class="summ-box">
+              <div class="summ-val" id="s-compliant">–</div>
+              <div class="summ-lbl">Compliant</div>
+            </div>
+            <div class="summ-box">
+              <div class="summ-val" id="s-violations" style="color:var(--red)">–</div>
+              <div class="summ-lbl">Violations</div>
+            </div>
+            <div class="summ-box">
+              <div class="summ-val" id="s-helmets">–</div>
+              <div class="summ-lbl">Helmets ✓</div>
+            </div>
+            <div class="summ-box">
+              <div class="summ-val" id="s-vests">–</div>
+              <div class="summ-lbl">Vests ✓</div>
+            </div>
+            <div class="summ-box">
+              <div class="summ-val" id="s-rate">–</div>
+              <div class="summ-lbl">Rate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Annotated result -->
+        <div class="result-card" style="margin-bottom:14px;">
+          <div class="result-header"><h3>Annotated Output</h3></div>
+          <div id="result-img-wrap">
+            <img id="result-img" alt="Detection result"/>
+          </div>
+          <p id="result-placeholder" style="padding:30px;text-align:center;color:var(--muted);font-size:13px;">
+            Upload an image and click Detect PPE
+          </p>
+        </div>
+
+        <!-- Detection list -->
+        <div class="result-card">
+          <div class="result-header"><h3>Detections</h3></div>
+          <div class="det-list" id="det-list">
+            <p style="color:var(--muted);font-size:13px;padding:10px;">No detections yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="dev-info">
+    <h3>Sarthak Shirdhankar</h3>
+    <p>Final Year B.Tech · Construction Safety AI Project</p>
+    <div class="dev-links">
+      <a class="dev-link" href="tel:+919607866693">📞 +91 96078 66693</a>
+      <a class="dev-link" href="mailto:shirdhankarsarthak@gmail.com">✉ Email</a>
+      <a class="dev-link" href="https://www.linkedin.com/in/sarthak-shirdhankar-3b69a9386" target="_blank">🔗 LinkedIn</a>
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div style="font-size:24px;font-weight:800;color:var(--green);">PPE GUARD</div>
+    <div style="font-size:12px;color:var(--muted);">Driven by quality, chosen by those who know the difference.</div>
+  </div>
+</footer>
+
+<script>
+// ── Tab Switching ──────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Drag/Drop helpers ──────────────────────────────────────────────────────────
+function ev(e, state) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.toggle('drag', state === 'drag');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) loadPreview(f);
+}
+function handleFile(e) {
+  const f = e.target.files[0];
+  if (f) loadPreview(f);
+}
+function loadPreview(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('preview-wrap').style.display = 'block';
+    document.getElementById('detect-btn').disabled = false;
+    window._uploadFile = file;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Image Detection ────────────────────────────────────────────────────────────
+async function detectImage() {
+  if (!window._uploadFile) return;
+  document.getElementById('detect-btn').disabled = true;
+  document.getElementById('upload-spinner').style.display = 'block';
+  document.getElementById('result-placeholder').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('file', window._uploadFile);
+
+  try {
+    const r = await fetch('/api/detect', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error);
+
+    // Summary
+    const s = d.summary || {};
+    document.getElementById('s-workers').textContent   = s.total_workers || 0;
+    document.getElementById('s-compliant').textContent = s.compliant || 0;
+    document.getElementById('s-violations').textContent= s.violations || 0;
+    document.getElementById('s-helmets').textContent   = s.helmets || 0;
+    document.getElementById('s-vests').textContent     = s.vests || 0;
+    document.getElementById('s-rate').textContent      = (s.compliance_rate || 0) + '%';
+
+    // Result image
+    document.getElementById('result-img').src = d.annotated_image;
+    document.getElementById('result-img-wrap').style.display = 'block';
+
+    // Detection list
+    const dl = document.getElementById('det-list');
+    if (d.detections && d.detections.length) {
+      dl.innerHTML = d.detections.map(det => `
+        <div class="det-item">
+          <span class="di-icon">${det.icon}</span>
+          <span class="di-name">${det.class_name}</span>
+          <span class="di-conf">${det.confidence}%</span>
+          <div class="conf-bar-wrap">
+            <div class="conf-bar" style="width:${det.confidence}%"></div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      dl.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:10px;">No detections.</p>';
+    }
+  } catch(e) {
+    alert('Detection failed: ' + e.message);
+  } finally {
+    document.getElementById('upload-spinner').style.display = 'none';
+    document.getElementById('detect-btn').disabled = false;
+  }
+}
+
+// ── Live Camera ────────────────────────────────────────────────────────────────
+let pollInterval = null;
+let cameraRunning = false;
+
+async function startCamera() {
+  const source = document.getElementById('cam-source').value.trim() || '0';
+  const srcVal = /^\d+$/.test(source) ? parseInt(source) : source;
+
+  // Start MJPEG stream
+  const img = document.getElementById('stream-img');
+  img.src = '/stream';
+  img.style.display = 'block';
+  document.getElementById('cam-placeholder').style.display = 'none';
+
+  // Start backend camera
+  try {
+    await fetch('/api/camera/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: srcVal })
+    });
+  } catch(e) {}
+
+  // Update UI
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled  = false;
+  document.getElementById('live-dot').classList.add('live');
+  document.getElementById('live-status').textContent = 'LIVE';
+  cameraRunning = true;
+
+  // Poll counts every 800ms
+  pollInterval = setInterval(updateCounts, 800);
+}
+
+async function stopCamera() {
+  cameraRunning = false;
+  clearInterval(pollInterval);
+
+  try { await fetch('/api/camera/stop', { method: 'POST' }); } catch(e) {}
+
+  const img = document.getElementById('stream-img');
+  img.src = '';
+  img.style.display = 'none';
+  document.getElementById('cam-placeholder').style.display = 'block';
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled  = true;
+  document.getElementById('live-dot').classList.remove('live');
+  document.getElementById('live-status').textContent = 'Stopped';
+  document.getElementById('alert-banner').style.display = 'none';
+  resetStats();
+}
+
+async function updateCounts() {
+  if (!cameraRunning) return;
+  try {
+    const r = await fetch('/api/camera/counts');
+    const j = await r.json();
+    if (!j.success || !j.data || !j.data.total) return;
+    renderStats(j.data);
+  } catch(e) {}
+}
+
+function renderStats(d) {
+  const total = d.total || 0;
+
+  // FPS + det count
+  document.getElementById('fps-val').textContent = d.fps || 0;
+  document.getElementById('det-count-live').textContent =
+    `${total} worker${total !== 1 ? 's' : ''} detected`;
+
+  // Rate ring
+  const rate = d.rate || 0;
+  const circumference = 339;
+  const offset = circumference - (rate / 100) * circumference;
+  const fillEl = document.getElementById('rate-fill');
+  fillEl.style.strokeDashoffset = offset;
+  fillEl.style.stroke = rate === 100 ? '#00e676' : rate >= 60 ? '#ffca28' : '#f44336';
+  document.getElementById('rate-number').textContent = rate + '%';
+  document.getElementById('rate-number').style.color = rate === 100 ? '#00e676' : rate >= 60 ? '#ffca28' : '#f44336';
+  document.getElementById('rate-sub').textContent =
+    `${d.compliant}/${total} workers compliant`;
+
+  // Stat bars
+  function setBar(id, barId, val, total) {
+    const pct = total ? Math.round(val / total * 100) : 0;
+    document.getElementById(id).textContent = `${val}/${total}`;
+    const bar = document.getElementById(barId);
+    bar.style.width = pct + '%';
+    bar.style.background = pct === 100 ? '#00e676' : pct >= 60 ? '#ffca28' : '#f44336';
+  }
+  document.getElementById('stat-workers').textContent = total;
+  setBar('stat-helmets',  'bar-helmets',  d.helmets  || 0, total);
+  setBar('stat-vests',    'bar-vests',    d.vests    || 0, total);
+  setBar('stat-goggles',  'bar-goggles',  d.goggles  || 0, total);
+  setBar('stat-compliant','bar-compliant',d.compliant|| 0, total);
+
+  // Per-worker cards
+  const wg = document.getElementById('worker-grid');
+  if (d.workers && d.workers.length) {
+    wg.innerHTML = d.workers.map(w => `
+      <div class="worker-card ${w.compliant ? 'compliant' : 'violation'}">
+        <div class="worker-header">
+          <span class="worker-name">👷 Worker ${w.id}</span>
+          <span class="worker-badge ${w.compliant ? 'badge-safe' : 'badge-viol'}">
+            ${w.compliant ? '✓ SAFE' : '✗ VIOLATION'}
+          </span>
+        </div>
+        <div class="worker-ppe">
+          <div class="ppe-chip ${w.has_helmet  ? 'ok' : 'miss'}">🪖 ${w.has_helmet  ? 'Helmet'  : 'No Helmet'}</div>
+          <div class="ppe-chip ${w.has_vest    ? 'ok' : 'miss'}">🦺 ${w.has_vest    ? 'Vest'    : 'No Vest'}</div>
+          <div class="ppe-chip ${w.has_glasses ? 'ok' : 'miss'}">🥽 ${w.has_glasses ? 'Goggles' : 'No Goggles'}</div>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    wg.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No workers detected.</p>';
+  }
+
+  // Alert banner
+  const banner = document.getElementById('alert-banner');
+  if (d.violations > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('alert-text').textContent =
+      `🚨 ${d.violations} worker${d.violations>1?'s':''} missing PPE — Immediate action required!`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function resetStats() {
+  ['stat-workers','stat-helmets','stat-vests','stat-goggles','stat-compliant',
+   'rate-number','fps-val'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '–';
+  });
+  document.getElementById('rate-sub').textContent = 'Start camera to monitor';
+  document.getElementById('det-count-live').textContent = '0 workers detected';
+  ['bar-helmets','bar-vests','bar-goggles','bar-compliant'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.width = '0%';
+  });
+  document.getElementById('rate-fill').style.strokeDashoffset = '339';
+  document.getElementById('worker-grid').innerHTML =
+    '<p style="color:var(--muted);font-size:13px;padding:8px 0;">No workers detected yet.</p>';
+}
+
+// ── Model status check ─────────────────────────────────────────────────────────
+async function checkStatus() {
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    if (d.demo_mode) {
+      document.getElementById('demo-badge').style.display = 'flex';
+      document.getElementById('model-badge').textContent = '● Demo Mode';
+      document.getElementById('model-badge').style.color = '#ff9500';
+    }
+  } catch(e) {}
+}
+checkStatus();
+</script>
+</body>
+</html>
